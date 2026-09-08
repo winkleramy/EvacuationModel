@@ -141,7 +141,14 @@ for _, community in communities.iterrows():
 
 vehicles = pd.DataFrame(vehicle_rows)
 
-def display_current_state(vehicles, routes):
+
+fig, ax = plt.subplots(figsize=(14, 6))
+def display_current_state(vehicles, routes, current_time):
+
+    total_demand = len(vehicles[ 
+        (vehicles["state"]=="driving") |
+        (vehicles["state"]=="queued")
+        ])
 
     counts = {}
 
@@ -174,15 +181,14 @@ def display_current_state(vehicles, routes):
     ])
 
     # Plot
-    fig, ax = plt.subplots(figsize=(14, 6))
-
+    ax.clear()
     im = ax.imshow(
         data,
         aspect="auto",
         interpolation="nearest"
     )
 
-    plt.colorbar(im, ax=ax, label="Vehicles")
+    # plt.colorbar(im, ax=ax, label="Vehicles")
 
     ax.set_yticks(range(len(counts)))
     ax.set_yticklabels(counts.keys())
@@ -192,10 +198,11 @@ def display_current_state(vehicles, routes):
 
     ax.set_xlabel("Route Step")
     ax.set_ylabel("Community")
-    ax.set_title("Current Evacuation State")
+    ax.set_title("Current Evacuation State, Minute " + str(round(current_time/60)) + ", Vehicles on Road " + str(total_demand))
 
     plt.tight_layout()
     #plt.show()
+    fig.canvas.draw_idle()
     plt.pause(0.01)
 
 
@@ -207,12 +214,15 @@ def move_vehicle(vehicles, routes, nodes, i, current_time):
     if vehicles.at[i, "route_index"] >= len(route):
         vehicles.at[i, "state"] = "finished"
         vehicles.at[i, "ticket_time"] = current_time
+        vehicles.at[i, "current_node"] = None
+        vehicles.at[i, "current_link"] = None
         return
 
     next_step = route[vehicles.at[i, "route_index"]]
 
     # move to link
     if next_step[0]=="L":
+        vehicles.at[i, "current_node"] = None
         vehicles.at[i,"current_link"] = next_step
         vehicles.at[i,"ticket_time"] = current_time+links.at[next_step, "process_time_sec"]
         vehicles.at[i, "state"] = "driving"
@@ -220,6 +230,7 @@ def move_vehicle(vehicles, routes, nodes, i, current_time):
     # move to resource/node
     if next_step[0]=="N":
         vehicles.at[i,"current_node"] = next_step
+        vehicles.at[i,"current_link"] = None
         vehicles.at[i,"ticket_time"] = current_time+nodes.at[next_step,"process_time_sec"]
         vehicles.at[i, "state"] = "queued"
         nodes.at[next_step, "queue_length"] += 1
@@ -238,7 +249,8 @@ while True:
     # -----------------------------
     ready = vehicles[
         (vehicles["ticket_time"] <= current_time) &
-        (vehicles["state"] != "queued")
+        (vehicles["state"] != "queued") &
+        (vehicles["state"] != "finished")
     ]
 
     for i in ready.index:
@@ -280,7 +292,8 @@ while True:
     # -----------------------------
 
     vehicle_events = vehicles.loc[
-        vehicles["state"] != "finished",
+        (vehicles["state"] != "queued") &
+        (vehicles["state"] != "finished"),
         "ticket_time"
     ]
 
@@ -304,5 +317,5 @@ while True:
     current_time = min(candidates)
 
     # collect_statistics(second)
-    display_current_state(vehicles, routes)
+    display_current_state(vehicles, routes, current_time)
 
