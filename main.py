@@ -7,17 +7,17 @@ fig, ax = plt.subplots(figsize=(14, 6))
 RNG = np.random.default_rng(42)
 
 # Time to depart home in number of vehicles
-MEAN_TICKET = 45 * 60
-SIGMA_TICKET = 15 * 60
+MEAN_TICKET = 0 * 60
+SIGMA_TICKET = 0 * 60
 VEHICLES_PER_DWELLING = 2.3
 
 # Vehicles per source
 communities = pd.DataFrame({
     "source": [
-        "MtBache", "Highland", "MarVista", "SpanishRanch", "Radonich", "Skyland1", "Skyland2", "SummitWoods",
+        "MtBache", #"Highland", "MarVista", "SpanishRanch", "Radonich", "Skyland1", "Skyland2", "SummitWoods",
     ],
     "dwellings": [
-        65, 20, 11, 18, 28, 80, 80, 49,
+        65, # 20, 11, 18, 28, 80, 80, 49,
     ]
 })
 
@@ -87,12 +87,14 @@ nodes = pd.DataFrame([
 ])
 
 nodes["queue_length"] = 0
+nodes["state"] = "free"
+nodes["next_available_time"] = 0
 nodes = nodes.set_index(["id","incoming_link"])
 
 print(nodes)
 
 routes = {
-    "MtBache":          ["N1", "L1", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
+    "MtBache":          ["N1", "L1"], #, "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
     "Highland":         ["N99", "L99", "N3", "L3", "N4", "L4", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
     "MarVista":         ["N3", "L3", "N4", "L4", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
     "SpanishRanch":     ["N4", "L4", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
@@ -156,13 +158,14 @@ def move_vehicle(vehicles, routes, nodes, i, current_time):
 
     # move to resource/node
     if next_step[0]=="N":
+        incoming_link = vehicles.at[i, "current_link"]
+        nodes.at[(next_step, incoming_link), "queue_length"] += 1
         vehicles.at[i,"current_node"] = next_step
-        vehicles.at[i, "incoming_link"] = vehicles.at[i, "current_link"]
+        vehicles.at[i, "incoming_link"] = incoming_link
         vehicles.at[i,"current_link"] = None
-        vehicles.at[i,"ticket_time"] = current_time+nodes.at[(next_step, vehicles.at[i, "incoming_link"]),"process_time_sec"]
+        vehicles.at[i,"ticket_time"] = current_time #+nodes.at[(next_step, vehicles.at[i, "incoming_link"]),"process_time_sec"]*nodes.at[(next_step, vehicles.at[i, "incoming_link"]),"queue_length"]
         vehicles.at[i, "state"] = "queued"
-        nodes.at[(next_step, vehicles.at[i, "incoming_link"]), "queue_length"] += 1
-
+        
     vehicles.at[i, "route_index"] +=1
 
 history = []
@@ -186,8 +189,10 @@ while True:
     # -----------------------------
     # Process all node releases
     # -----------------------------
+    nodes.loc[ nodes["next_available_time"] <= current_time, "state" ] = "free"
     ready = nodes[
-        nodes["queue_length"] > 0
+        (nodes["queue_length"] > 0) &
+        (nodes["next_available_time"] <= current_time)
     ]
 
     for node_id in ready.index.get_level_values("id").unique():
@@ -211,43 +216,23 @@ while True:
         queued = queued.sort_values(["priority", "ticket_time"])
         i = queued.index[0]
 
-        # Move vehicle to the next link
-        move_vehicle(vehicles, routes, nodes, i, current_time)
-
-        # Reserve the node for another process_time seconds
-        incoming_link = queued.at[i, "incoming_link"]
+        incoming_link = vehicles.at[i, "incoming_link"]
+        vehicles.at[i,"ticket_time"] = current_time + nodes.at[(node_id, incoming_link), "process_time_sec"]
+        vehicles.at[i, "state"] = "processing"
         nodes.at[(node_id, incoming_link), "queue_length"] -= 1
+        nodes.loc[(node_id, slice(None)), "state"] = "processing"
+        nodes.loc[(node_id, slice(None)), "next_available_time" ] = current_time + nodes.at[(node_id, incoming_link), "process_time_sec"]
 
-    # -----------------------------
-    # Find next event
-    # -----------------------------
+        # # Move vehicle to the next link
+        # move_vehicle(vehicles, routes, nodes, i, current_time)
 
-    vehicle_events = vehicles.loc[
-        (vehicles["state"] != "finished") &
-        (vehicles["ticket_time"] > current_time),
-        "ticket_time"
-    ]
+        # # Reserve the node for another process_time seconds
+        # incoming_link = queued.at[i, "incoming_link"]
+        # nodes.at[(node_id, incoming_link), "queue_length"] -= 1
+        # nodes.at[(node_id, incoming_link), "next_available_time" ] = current_time + nodes.at[(node_id, incoming_link), "process_time_sec"]
 
-    node_events = vehicles.loc[
-        vehicles["state"] == "queued",
-        "ticket_time"
-    ]
-
-    if vehicle_events.empty and node_events.empty:
-        break
-
-    candidates = []
-
-    if not vehicle_events.empty:
-        candidates.append(vehicle_events.min())
-
-    if not node_events.empty:
-        candidates.append(node_events.min())
-
-    current_time = min(candidates)
 
     # collect_statistics(second)
-
     history.append({
 
         "time": current_time,
@@ -274,6 +259,39 @@ while True:
 
     #display_current_state(fig, ax, vehicles, routes, current_time)
     display_network_state(fig, ax, vehicles, nodes, links, current_time)
+
+    # -----------------------------
+    # Find next event
+    # -----------------------------
+
+    vehicle_events = vehicles.loc[
+        (vehicles["state"] != "finished") &
+        (vehicles["state"] != "queued"),
+        "ticket_time"
+    ]
+
+    node_events = nodes.loc[
+        nodes["queue_length"] > 0,
+        "next_available_time"
+    ]
+
+    # node_events = vehicles.loc[
+    #     vehicles["state"] == "queued",
+    #     "ticket_time"
+    # ]
+
+    if vehicle_events.empty and node_events.empty:
+        break
+
+    candidates = []
+
+    if not vehicle_events.empty:
+        candidates.append(vehicle_events.min())
+
+    if not node_events.empty:
+        candidates.append(node_events.min())
+
+    current_time = min(candidates)
 
 history = pd.DataFrame(history)
 

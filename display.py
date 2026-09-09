@@ -69,7 +69,7 @@ def display_network_state(fig, ax, vehicles, nodes, links, current_time):
     # Count vehicles waiting at each node
     for node_id in nodes.index.get_level_values("id").unique():
         counts[node_id] = (
-            (vehicles["state"] == "queued") &
+            ( (vehicles["state"] == "queued") | (vehicles["state"] == "processing") ) &
             (vehicles["current_node"] == node_id)
         ).sum()
 
