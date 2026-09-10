@@ -252,8 +252,17 @@ while True:
         "washout_queue":
             nodes.loc[("N1","L0"),"queue_length"],
 
-        "n7_queue":
-            vehicles["current_node"].eq("N7").sum(),
+        "spanishranch_queue":
+            nodes.loc[("N3","L0"),"queue_length"],
+
+        "mtbachehighland_queue":
+            nodes.loc[("N4",slice(None)),"queue_length"].sum(),
+
+        "skyland_queue":
+            nodes.loc[("N7","L0"),"queue_length"],
+
+        "ssj_queue":
+            nodes.loc[("N8","L8"),"queue_length"],
 
     })
 
