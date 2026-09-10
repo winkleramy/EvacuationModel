@@ -14,10 +14,10 @@ VEHICLES_PER_DWELLING = 2.3
 # Vehicles per source
 communities = pd.DataFrame({
     "source": [
-        "MtBache", #"Highland", "MarVista", "SpanishRanch", "Radonich", "Skyland1", "Skyland2", "SummitWoods",
+        "MtBache", "Highland", "MarVista", "SpanishRanch", "Radonich", "Skyland1", "Skyland2", "SummitWoods",
     ],
     "dwellings": [
-        65, # 20, 11, 18, 28, 80, 80, 49,
+        65, 20, 11, 18, 28, 80, 80, 49,
     ]
 })
 
@@ -94,7 +94,7 @@ nodes = nodes.set_index(["id","incoming_link"])
 print(nodes)
 
 routes = {
-    "MtBache":          ["N1", "L1"], #, "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
+    "MtBache":          ["N1", "L1", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
     "Highland":         ["N99", "L99", "N3", "L3", "N4", "L4", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
     "MarVista":         ["N3", "L3", "N4", "L4", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
     "SpanishRanch":     ["N4", "L4", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
