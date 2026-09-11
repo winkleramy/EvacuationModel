@@ -148,19 +148,34 @@ def evacuate(vehicles, routes, nodes, links, fig = None, axes = None):
                 (vehicles["state"] == "driving").sum(),
     
             "vehicles_queued":
-                (vehicles["state"] == "queued").sum(),
-    
-            "vehicles_processing":
-                (vehicles["state"] == "processing").sum(),
+                ( (vehicles["state"] == "queued") | (vehicles["state"] == "processing") ).sum(),
     
             "vehicles_finished":
                 (vehicles["state"] == "finished").sum(),
+
+            **{
+                f"{node_id}_{incoming_link}_queue":
+                    nodes.at[(node_id, incoming_link), "queue_length"]
+                for node_id, incoming_link in nodes.index
+            }
     
-            "washout_queue":
-                nodes.loc[("N1","L0"),"queue_length"],
+            # "washout_queue":
+            #     nodes.loc[("N1","L0"),"queue_length"],
     
-            "n7_queue":
-                vehicles["current_node"].eq("N7").sum(),
+            # "spanishranch_queue":
+            #     nodes.loc[("N3","L0"),"queue_length"],
+    
+            # "mtbachehighlandL1_queue":
+            #     nodes.loc[("N4","L1"),"queue_length"],
+    
+            # "mtbachehighlandL3_queue":
+            #     nodes.loc[("N4","L3"),"queue_length"],
+    
+            # "skyland_queue":
+            #     nodes.loc[("N7","L0"),"queue_length"],
+    
+            # "ssj_queue":
+            #     nodes.loc[("N8","L8"),"queue_length"],
     
         })
 
@@ -204,4 +219,4 @@ def evacuate(vehicles, routes, nodes, links, fig = None, axes = None):
 
     history = pd.DataFrame(history)
 
-    return vehicles, history
+    return vehicles, nodes, links, history

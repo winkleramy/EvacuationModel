@@ -231,6 +231,25 @@ while True:
         # nodes.at[(node_id, incoming_link), "queue_length"] -= 1
         # nodes.at[(node_id, incoming_link), "next_available_time" ] = current_time + nodes.at[(node_id, incoming_link), "process_time_sec"]
 
+    # node_labels = []
+    # node_values = []
+    # for node_id, incoming_link in nodes.index:
+    
+    #     count = (
+    #         (
+    #             (vehicles["state"] == "queued") |
+    #             (vehicles["state"] == "processing")
+    #         )
+    #         &
+    #         (vehicles["current_node"] == node_id)
+    #         &
+    #         (vehicles["incoming_link"] == incoming_link)
+    #     ).sum()
+
+    #     node_name = nodes.at[ (node_id, incoming_link), "name" ]
+    #     incoming_name = links.at[ incoming_link, "road_name" ]
+    #     node_labels.append( f"{node_name} ← {incoming_name}" )
+    #     node_values.append(count)
 
     # collect_statistics(second)
     history.append({
@@ -244,7 +263,7 @@ while True:
             (vehicles["state"] == "driving").sum(),
 
         "vehicles_queued":
-            (vehicles["state"] == "queued").sum(),
+            ( (vehicles["state"] == "queued") | (vehicles["state"] == "processing") ).sum(),
 
         "vehicles_finished":
             (vehicles["state"] == "finished").sum(),
@@ -255,8 +274,11 @@ while True:
         "spanishranch_queue":
             nodes.loc[("N3","L0"),"queue_length"],
 
-        "mtbachehighland_queue":
-            nodes.loc[("N4",slice(None)),"queue_length"].sum(),
+        "mtbachehighlandL1_queue":
+            nodes.loc[("N4","L1"),"queue_length"],
+
+        "mtbachehighlandL3_queue":
+            nodes.loc[("N4","L3"),"queue_length"],
 
         "skyland_queue":
             nodes.loc[("N7","L0"),"queue_length"],

@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -141,7 +142,7 @@ def display_network_state_by_movement( fig, axes, vehicles, nodes, links, curren
         ]
 
         if incoming_link == "L0":
-            incoming_name = "From Home"
+            incoming_name = "Home"
         else:
             incoming_name = links.at[
                 incoming_link,
@@ -163,10 +164,11 @@ def display_network_state_by_movement( fig, axes, vehicles, nodes, links, curren
 
     for link_id in links.index:
 
-        count = (
-            (vehicles["state"] == "driving") &
-            (vehicles["current_link"] == link_id)
-        ).sum()
+        if incoming_link == "L0":
+            count(vehicles["state"] == "home").sum()
+
+        else:
+            count = ( (vehicles["state"] == "driving") & (vehicles["current_link"] == link_id) ).sum()
 
         link_labels.append(
             links.at[link_id, "road_name"]
@@ -243,3 +245,139 @@ def display_network_state_by_movement( fig, axes, vehicles, nodes, links, curren
 
     fig.canvas.draw_idle()
     plt.pause(0.01)
+
+# def plot_node_queues(history, nodes, links):
+
+#     # One subplot for each node
+#     node_ids = nodes.index.get_level_values("id").unique()
+
+#     fig, axes = plt.subplots(
+#         len(node_ids),
+#         1,
+#         figsize=(14, 2.5 * len(node_ids)),
+#         sharex=True
+#     )
+
+#     # Handle case of only one node
+#     if len(node_ids) == 1:
+#         axes = [axes]
+
+#     time = history["time"] / 60
+
+#     for ax, node_id in zip(axes, node_ids):
+
+#         # Node title
+#         node_name = nodes.loc[(node_id, slice(None)), "name"].iloc[0]
+#         ax.set_title(node_name)
+
+#         # Plot every incoming approach
+#         incoming_links = (
+#             nodes.loc[(node_id, slice(None))]
+#             .index
+#             .get_level_values("incoming_link")
+#         )
+
+#         for incoming_link in incoming_links:
+
+#             key = f"{node_id}_{incoming_link}_queue"
+
+#             road_name = (
+#                 links.at[incoming_link, "road_name"]
+#                 .split(" (")[0]
+#             )
+
+#             ax.plot(
+#                 time,
+#                 history[key],
+#                 label=road_name,
+#                 linewidth=2
+#             )
+
+#         ax.set_ylabel("Vehicles")
+#         ax.grid(alpha=0.3)
+#         ax.legend(loc="upper right")
+
+#     axes[-1].set_xlabel("Time (minutes)")
+
+#     fig.suptitle(
+#         "Queue Lengths Throughout Evacuation",
+#         fontsize=16
+#     )
+
+#     fig.tight_layout()
+
+#     return fig, axes
+
+
+def plot_node_queues(history, nodes, links, ncols=3):
+
+    node_ids = nodes.index.get_level_values("id").unique()
+
+    nrows = math.ceil(len(node_ids) / ncols)
+
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(15, 3 * nrows),
+        sharex=True
+    )
+
+    # Flatten axes into one list
+    axes = axes.flatten()
+
+    time = history["time"] / 60
+
+    for ax, node_id in zip(axes, node_ids):
+
+        node_data = nodes.loc[(node_id, slice(None))]
+
+        node_name = node_data["name"].iloc[0]
+
+        incoming_links = (
+            node_data
+            .index
+            .get_level_values("incoming_link")
+        )
+
+        for incoming_link in incoming_links:
+
+            key = f"{node_id}_{incoming_link}_queue"
+
+            road_name = (
+                links.at[incoming_link, "road_name"]
+                .split(" (")[0]
+            )
+
+            ax.plot(
+                time,
+                history[key],
+                label=road_name,
+                linewidth=1.5
+            )
+
+        ax.set_title(node_name)
+
+        ax.set_ylabel("Vehicles")
+
+        ax.grid(alpha=0.25)
+
+        if len(incoming_links) > 1:
+            ax.legend(fontsize=8)
+
+    # Turn off unused subplot spaces
+    for ax in axes[len(node_ids):]:
+        ax.axis("off")
+
+    # X-axis label on bottom row
+    for ax in axes[-ncols:]:
+        if ax.has_data():
+            ax.set_xlabel("Time (minutes)")
+
+    fig.suptitle(
+        "Queue Lengths Throughout Evacuation",
+        fontsize=16
+    )
+
+    fig.tight_layout()
+
+    return fig, axes
