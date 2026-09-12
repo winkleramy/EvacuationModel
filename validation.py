@@ -146,8 +146,8 @@ def test_mtbacheloma():
 def test_summit():
 
     # Time to depart home in number of vehicles
-    MEAN_TICKET = 0 #45 * 60
-    SIGMA_TICKET = 0 #15 * 60
+    MEAN_TICKET = 42 * 60   # 50% ready within 42 minutes
+    SIGMA_TICKET = 14 * 60  # 90% ready within 60 minutes, 99.99% within 84 minutes
     VEHICLES_PER_DWELLING = 2.3
 
     # Vehicles per source
@@ -244,8 +244,8 @@ def test_summit():
 if __name__ == "__main__":
 
     # MEAN_TICKET, SIGMA_TICKET, communities, routes, nodes, links, expected = test_washout()
-    MEAN_TICKET, SIGMA_TICKET, communities, routes, nodes, links, expected = test_mtbacheloma()
-    # MEAN_TICKET, SIGMA_TICKET, communities, routes, nodes, links, expected = test_summit()
+    # MEAN_TICKET, SIGMA_TICKET, communities, routes, nodes, links, expected = test_mtbacheloma()
+    MEAN_TICKET, SIGMA_TICKET, communities, routes, nodes, links, expected = test_summit()
     vehicles = init(MEAN_TICKET,SIGMA_TICKET,communities)
 
     fig, axes = plt.subplots( 2, 1, figsize=(14, 8), gridspec_kw={"height_ratios": [2, 1]})
@@ -253,13 +253,13 @@ if __name__ == "__main__":
     fig.subplots_adjust(hspace=0.6)
     vehicles, nodes, links, history = evacuate(vehicles, routes, nodes, links) #, fig, axes)
 
-    actual = max(vehicles["commute_time"])
+    actual = max(vehicles["end_time"])
+    commute = max(vehicles["commute_time"])
 
     print("Actual - Expected (minutes):")
     print((actual - expected) / 60)
 
-    fig1, ax1 = plt.subplots(figsize=(14, 6))
-    ax1.plot(history["time"]/60, history["vehicles_finished"], label="Total Vehicles Finished")
+    fig1, ax1 = plt.subplots(figsize=(7, 5))
     for source in vehicles["source"].unique():
         batch = vehicles.loc[vehicles["source"]==source]
         end_times = np.sort(batch["end_time"])
@@ -267,53 +267,38 @@ if __name__ == "__main__":
         y_count = np.arange(len(end_times) + 1)
         ax1.step( x_time, y_count, where="post", label=source) 
         #ax1.plot(vehicles.loc[vehicles["source"]==source,"commute_time"] / 60, label=source)
+    # ax1.plot(history["time"]/60, history["vehicles_finished"], '--', color="gray", label="Total Vehicles Finished")
 
-    # Expected maximum commute time
-    ax1.axvline( expected / 60, color="red", linestyle="--", linewidth=2, label=f"Expected = {expected/60:.1f} min" )
+    if expected > 0:
+        # Expected maximum commute time
+        ax1.axvline( expected / 60, color="red", linestyle="--", linewidth=2, label=f"Expected = {expected/60:.1f} min" )
 
-    # Actual maximum commute time (optional)
-    ax1.axvline( actual / 60, color="green", linestyle="-", linewidth=2, label=f"Actual = {actual/60:.1f} min" )
+        # Actual maximum commute time (optional)
+        ax1.axvline( actual / 60, color="green", linestyle="-", linewidth=2, label=f"Actual = {actual/60:.1f} min" )
 
-    ax1.set_xlabel("Time (minutes)")
+    ax1.set_xlabel("Elapsed Time since Evacuation Order (minutes)")
     ax1.set_ylabel("Number of vehicles evacuated")
     ax1.set_title("Evacuation vs Time")
     ax1.legend()
 
-    fig2, ax2 = plt.subplots(figsize=(14, 6))
+    fig2, ax2 = plt.subplots(figsize=(7, 5))
+    group = vehicles.sort_values("start_time")
+    # ax2.scatter(group["start_time"].values / 60, group["commute_time"].values / 60, label="Total")
     # ax2.hist(vehicles["commute_time"] / 60, bins=20, label="Total")
     for source in vehicles["source"].unique():
-        group = vehicles.loc[vehicles["source"]==source]
-        ax2.plot(group["commute_time"].values / 60, group["start_time"].values / 60, label=source)
-        # ax2.hist(vehicles.loc[vehicles["source"]==source,"commute_time"] / 60, bins=20, label=source)
-
-    # Expected maximum commute time
-    ax2.axvline(
-        expected / 60,
-        color="red",
-        linestyle="--",
-        linewidth=2,
-        label=f"Expected = {expected/60:.1f} min"
-    )
-
-    # Actual maximum commute time (optional)
-    ax2.axvline(
-        actual / 60,
-        color="green",
-        linestyle="-",
-        linewidth=2,
-        label=f"Actual = {actual/60:.1f} min"
-    )
+        group = vehicles.loc[vehicles["source"]==source].sort_values("start_time")
+        ax2.plot(group["start_time"].values / 60, group["commute_time"].values / 60, "-o", label=source)
     
-    ax2.set_xlabel("Commute time (minutes)")
-    ax2.set_ylabel("Departure time (minutes)")
+    ax2.set_xlabel("Departure time (minutes)")
+    ax2.set_ylabel("Commute time (minutes)")
     ax2.set_title("Distribution of commute times")
     ax2.legend()
 
-    # fig3, ax3 = plt.subplots(figsize=(14, 6))
-    # ax3.hist(vehicles["start_time"] / 60, bins=20, label="Total")
-    # ax3.set_xlabel("Departure time post evacuation notice (minutes)")
-    # ax3.set_ylabel("Number of vehicles")
-    # ax3.set_title("Distribution of departure times")
+    fig3, ax3 = plt.subplots(figsize=(7, 5))
+    ax3.hist(vehicles["start_time"] / 60, bins=20, label="Total")
+    ax3.set_xlabel("Departure time post evacuation notice (minutes)")
+    ax3.set_ylabel("Number of vehicles")
+    ax3.set_title("Distribution of departure times")
 
     # fig4, ax4 = plt.subplots(figsize=(14,6))
     # for node_id, incoming_link in nodes.index:
@@ -325,7 +310,7 @@ if __name__ == "__main__":
     # ax4.set_title("Evacuation Queue Lengths")  
     # ax4.legend()
 
-    fig4, axes4 = plot_node_queues(history, nodes, links)
+    fig4, axes4, max_queues = plot_node_queues(history, nodes, links)
 
     plt.show()
 

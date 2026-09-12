@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 def display_current_state(fig, ax, vehicles, routes, current_time):
@@ -327,33 +328,23 @@ def plot_node_queues(history, nodes, links, ncols=3):
 
     time = history["time"] / 60
 
+    max_queues = []
     for ax, node_id in zip(axes, node_ids):
 
         node_data = nodes.loc[(node_id, slice(None))]
 
         node_name = node_data["name"].iloc[0]
 
-        incoming_links = (
-            node_data
-            .index
-            .get_level_values("incoming_link")
-        )
+        incoming_links = ( node_data.index.get_level_values("incoming_link") )
 
         for incoming_link in incoming_links:
 
             key = f"{node_id}_{incoming_link}_queue"
 
-            road_name = (
-                links.at[incoming_link, "road_name"]
-                .split(" (")[0]
-            )
+            road_name = ( links.at[incoming_link, "road_name"].split(" (")[0] )
 
-            ax.plot(
-                time,
-                history[key],
-                label=road_name,
-                linewidth=1.5
-            )
+            ax.plot( time, history[key], label=road_name, linewidth=1.5 )
+            max_queues.append({ key : history[key].values.max()})
 
         ax.set_title(node_name)
 
@@ -371,7 +362,7 @@ def plot_node_queues(history, nodes, links, ncols=3):
     # X-axis label on bottom row
     for ax in axes[-ncols:]:
         if ax.has_data():
-            ax.set_xlabel("Time (minutes)")
+            ax.set_xlabel("Elapsed Time since Evacuation Order (minutes)")
 
     fig.suptitle(
         "Queue Lengths Throughout Evacuation",
@@ -380,4 +371,6 @@ def plot_node_queues(history, nodes, links, ncols=3):
 
     fig.tight_layout()
 
-    return fig, axes
+    max_queues_df = (pd.DataFrame( [(k, v) for d in max_queues for k, v in d.items()], columns=["queue", "max_queue"] ))
+
+    return fig, axes, max_queues_df
