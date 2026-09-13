@@ -24,11 +24,11 @@ A computer simulation moves household vehicles through connected roads and inter
 ---
 *online only*
 
-[📄 View the Presentation](docs/Evacuation_Modeling.pdf)
+[📄 View the Presentation](docs/Evacuation_Model.pdf)
 
-<object data="Evacuation_Modeling.pdf"
+<object data="Evacuation_Model.pdf"
         type="application/pdf"
         width="100%"
         height="900">
-    <a href="docs/Evacuation_Modeling.pdf">Download the presentation</a>.
+    <a href="docs/Evacuation_Model.pdf">Download the presentation</a>.
 </object>
