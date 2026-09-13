@@ -3,6 +3,8 @@ import pandas as pd
 from model import *
 from display import *
 
+DEBUG = 0 # Set to 1 to monitor simulation step-by-step. Set to 0 to run to completion 
+
 WASHOUT_TIME    = 8     # seconds crossing a washout
 STOP_TIME       = 5     # seconds merging at stop sign or yield
 SPEED           = 25    # speed on roadways, mph
@@ -248,10 +250,13 @@ if __name__ == "__main__":
     MEAN_TICKET, SIGMA_TICKET, communities, routes, nodes, links, expected = test_summit()
     vehicles = init(MEAN_TICKET,SIGMA_TICKET,communities)
 
-    fig, axes = plt.subplots( 2, 1, figsize=(14, 8), gridspec_kw={"height_ratios": [2, 1]})
-    fig.tight_layout(pad=2.0)
-    fig.subplots_adjust(hspace=0.6)
-    vehicles, nodes, links, history = evacuate(vehicles, routes, nodes, links) #, fig, axes)
+    if DEBUG:
+        fig, axes = plt.subplots( 2, 1, figsize=(14, 8), gridspec_kw={"height_ratios": [2, 1]})
+        fig.tight_layout(pad=2.0)
+        fig.subplots_adjust(hspace=0.6)
+        vehicles, nodes, links, history = evacuate(vehicles, routes, nodes, links, fig, axes)
+    else:
+        vehicles, nodes, links, history = evacuate(vehicles, routes, nodes, links)
 
     actual = max(vehicles["end_time"])
     commute = max(vehicles["commute_time"])

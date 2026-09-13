@@ -1,335 +1,184 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+from model import *
 from display import *
-fig, ax = plt.subplots(figsize=(14, 6))
 
-RNG = np.random.default_rng(42)
+DEBUG = 0 # Set to 1 to monitor simulation step-by-step. Set to 0 to run to completion 
 
-# Time to depart home in number of vehicles
-MEAN_TICKET = 0 * 60
-SIGMA_TICKET = 0 * 60
-VEHICLES_PER_DWELLING = 2.3
+WASHOUT_TIME    = 8     # seconds crossing a washout
+STOP_TIME       = 5     # seconds merging at stop sign or yield
+SPEED           = 25    # speed on roadways, mph
+CAPACITY        = 1900  # county road capacity, vehicles/hour
+GAP_TIME        = 5 #3600/CAPACITY     # gap needed to merge in seconds
 
-# Vehicles per source
-communities = pd.DataFrame({
-    "source": [
-        "MtBache", "Highland", "MarVista", "SpanishRanch", "Radonich", "Skyland1", "Skyland2", "SummitWoods",
-    ],
-    "dwellings": [
-        65, 20, 11, 18, 28, 80, 80, 49,
-    ]
-})
+def test_summit():
 
-communities["vehicles"] = (
-    communities["dwellings"] * VEHICLES_PER_DWELLING
-).round().astype(int)
+    # Time to depart home in number of vehicles
+    MEAN_TICKET = 42 * 60   # 50% ready within 42 minutes
+    SIGMA_TICKET = 14 * 60  # 90% ready within 60 minutes, 99.99% within 84 minutes
+    VEHICLES_PER_DWELLING = 2.3
 
-print(communities)
-
-vehicle_rows = []
-vehicle_id = 0
-for _, community in communities.iterrows():
-
-    tickets = RNG.normal(
-        loc=MEAN_TICKET,
-        scale=SIGMA_TICKET,
-        size=community["vehicles"],
-    )
-
-    tickets = np.clip(tickets, 0, None).astype(int)
-
-    for ticket in tickets:
-
-        vehicle_rows.append({
-            "vehicle_id": vehicle_id,
-            "source": community["source"],
-            "ticket_time": ticket,
-            "state": "home",
-            "current_node": "N0",
-            "current_link": "L0",
-            "incoming_link": None,
-            "route_index" : 0,
-        })
-
-        vehicle_id += 1
-
-vehicles = pd.DataFrame(vehicle_rows)
-
-nodes = pd.DataFrame([
-    # id    name               incoming_link    priority   process_time 
-    ["N1",  "Washout",                  "L0",   1,          8., (37.104740, -121.898612)],
-    ["N2",  "MtBache_Highland_Merge",   "L1",   1,          5., (37.1060157, -121.9001665)],
-    ["N2",  "MtBache_Highland_Merge",   "L4",   1,          5., (37.1060157, -121.9001665)],
-    ["N3",  "MarVista_Merge",           "L0",   2,          5., (37.102582, -121.896839)],
-    ["N3",  "MarVista_Merge",           "L99",  1,          1., (37.102582, -121.896839)],
-    ["N4",  "SpanishRanch_Merge",       "L0",   2,          5., (37.105577, -121.900078)],
-    ["N4",  "SpanishRanch_Merge",       "L3",   1,          1., (37.105577, -121.900078)],
-    ["N5",  "Radonich_Merge",           "L0",   2,          5., (37.108186, -121.904559)],
-    ["N5",  "Radonich_Merge",           "L2",   1,          1., (37.108186, -121.904559)],
-    ["N6",  "Skyland_Merge",            "L0",   2,          5., (37.116451, -121.921693)],
-    ["N6",  "Skyland_Merge",            "L5",   1,          1., (37.116451, -121.921693)],
-    ["N7",  "Summit_SSJ_Merge",         "L9",   2,          5., (37.118710, -121.925394)],
-    ["N7",  "Summit_SSJ_Merge",         "L6",   1,          1., (37.118710, -121.925394)],
-    ["N8",  "LomaPrieta_Merge",         "L0",   2,          5., (37.121319, -121.931327)],
-    ["N8",  "LomaPrieta_Merge",         "L7",   1,          1., (37.121319, -121.931327)],
-    ["N9",  "SummitWoods_Merge",        "L0",   1,          5., (37.112855, -121.947596)],
-    ["N10", "MillerCutoff_Merge",       "L0",   2,          5., (37.116080, -121.933509)],
-    ["N10", "MillerCutoff_Merge",       "L8",   1,          1., (37.116080, -121.933509)],
-    ["N99", "Highland",                 "L0",   1,          1., (37.102582, -121.896839)]
-], columns=[
-    "id",
-    "name",
-    "incoming_link",
-    "priority",
-    "process_time_sec",
-    "location"
-])
-
-nodes["queue_length"] = 0
-nodes["state"] = "free"
-nodes["next_available_time"] = 0
-nodes = nodes.set_index(["id","incoming_link"])
-
-print(nodes)
-
-routes = {
-    "MtBache":          ["N1", "L1", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
-    "Highland":         ["N99", "L99", "N3", "L3", "N4", "L4", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
-    "MarVista":         ["N3", "L3", "N4", "L4", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
-    "SpanishRanch":     ["N4", "L4", "N2", "L2", "N5", "L5", "N6", "L6", "N7", "L7", "N8"],
-    "Radonich":         ["N5", "L5", "N6", "L6", "N7", "L7", "N8"],
-    "Skyland1":         ["N6", "L6", "N7", "L7", "N8"],
-    "Skyland2":         ["N10", "L9", "N7", "L7", "N8"],
-    "SummitWoods":      ["N9", "L8", "N10", "L9", "N7", "L7", "N8"],
-}
-
-print(routes)
-
-links = pd.DataFrame([
-    # id     from   to     road_name       length_mi  speed_mph
-    ["L1",  "N1",  "N2",  "Mt Bache Rd",        0.1,       25],
-    ["L2",  "N2",  "N5",  "Highland Way",       0.3,       25],
-    ["L3",  "N3",  "N4",  "Highland Way",       0.4,       25],
-    ["L4",  "N4",  "N2",  "Highland Way",       154./5280, 25],
-    ["L5",  "N5",  "N6",  "Highland Way",       1.1,       25],
-    ["L6",  "N6",  "N7",  "Highland Way",       0.3,       25],
-    ["L7",  "N7",  "N8",  "Summit Rd",          0.4,       25],
-    ["L8",  "N9",  "N10",   "Soquel San Jose Rd",   0.9,   25],
-    ["L9",  "N10",  "N7",   "Soquel San Jose Rd",   0.5,   25],
-    ["L99",  "N99",  "N3",   "Highland Way",     0.5,       25],
-], columns=[
-    "id",
-    "from_node",
-    "to_node",
-    "road_name",
-    "length_miles",
-    "speed_mph",
-])
-
-links["process_time_sec"] = (
-    links["length_miles"] / links["speed_mph"] * 3600
-)
-links = links.set_index("id")
-print(links)
-
-def move_vehicle(vehicles, routes, nodes, i, current_time):
-
-    source = vehicles.at[i, "source"]
-    route  = routes[source]
-
-    if vehicles.at[i, "route_index"] >= len(route):
-        vehicles.at[i, "state"] = "finished"
-        vehicles.at[i, "ticket_time"] = current_time
-        vehicles.at[i, "incoming_link"] = vehicles.at[i, "current_link"]
-        vehicles.at[i, "current_link"] = None
-        vehicles.at[i, "current_node"] = None
-        return
-
-    next_step = route[vehicles.at[i, "route_index"]]
-
-    # move to link
-    if next_step[0]=="L":
-        vehicles.at[i, "current_node"]  = None
-        vehicles.at[i, "incoming_link"] = vehicles.at[i, "current_link"]
-        vehicles.at[i, "current_link"]  = next_step
-        vehicles.at[i, "ticket_time"]   = current_time+links.at[next_step, "process_time_sec"]
-        vehicles.at[i, "state"]         = "driving"
-
-    # move to resource/node
-    if next_step[0]=="N":
-        incoming_link = vehicles.at[i, "current_link"]
-        nodes.at[(next_step, incoming_link), "queue_length"] += 1
-        vehicles.at[i,"current_node"] = next_step
-        vehicles.at[i, "incoming_link"] = incoming_link
-        vehicles.at[i,"current_link"] = None
-        vehicles.at[i,"ticket_time"] = current_time #+nodes.at[(next_step, vehicles.at[i, "incoming_link"]),"process_time_sec"]*nodes.at[(next_step, vehicles.at[i, "incoming_link"]),"queue_length"]
-        vehicles.at[i, "state"] = "queued"
-        
-    vehicles.at[i, "route_index"] +=1
-
-history = []
-
-plt.ion()
-current_time = vehicles["ticket_time"].min()
-while True:
-
-    # -----------------------------
-    # Process all vehicle events
-    # -----------------------------
-    ready = vehicles[
-        (vehicles["ticket_time"] <= current_time) &
-        (vehicles["state"] != "queued") &
-        (vehicles["state"] != "finished")
-    ]
-
-    for i in ready.index:
-        move_vehicle(vehicles, routes, nodes, i, current_time)
-
-    # -----------------------------
-    # Process all node releases
-    # -----------------------------
-    nodes.loc[ nodes["next_available_time"] <= current_time, "state" ] = "free"
-    ready = nodes[
-        (nodes["queue_length"] > 0) &
-        (nodes["next_available_time"] <= current_time)
-    ]
-
-    for node_id in ready.index.get_level_values("id").unique():
-
-        queued = vehicles[
-            (vehicles["state"] == "queued") &
-            (vehicles["current_node"] == node_id) &
-            (vehicles["ticket_time"] <= current_time)
-        ]
-
-        if queued.empty:
-            continue
-
-        # FIFO, Oldest vehicle in the queue
-        # i = queued["ticket_time"].idxmin()
-
-        # First Vehicle with highest priority
-        queued["priority"] = [ nodes.at[(node_id, link), "priority"] for link in queued["incoming_link"] ]
-        queued["process_time_sec"] = [ nodes.at[(node_id, link), "process_time_sec"] for link in queued["incoming_link"] ]
-
-        queued = queued.sort_values(["priority", "ticket_time"])
-        i = queued.index[0]
-
-        incoming_link = vehicles.at[i, "incoming_link"]
-        vehicles.at[i,"ticket_time"] = current_time + nodes.at[(node_id, incoming_link), "process_time_sec"]
-        vehicles.at[i, "state"] = "processing"
-        nodes.at[(node_id, incoming_link), "queue_length"] -= 1
-        nodes.loc[(node_id, slice(None)), "state"] = "processing"
-        nodes.loc[(node_id, slice(None)), "next_available_time" ] = current_time + nodes.at[(node_id, incoming_link), "process_time_sec"]
-
-        # # Move vehicle to the next link
-        # move_vehicle(vehicles, routes, nodes, i, current_time)
-
-        # # Reserve the node for another process_time seconds
-        # incoming_link = queued.at[i, "incoming_link"]
-        # nodes.at[(node_id, incoming_link), "queue_length"] -= 1
-        # nodes.at[(node_id, incoming_link), "next_available_time" ] = current_time + nodes.at[(node_id, incoming_link), "process_time_sec"]
-
-    # node_labels = []
-    # node_values = []
-    # for node_id, incoming_link in nodes.index:
-    
-    #     count = (
-    #         (
-    #             (vehicles["state"] == "queued") |
-    #             (vehicles["state"] == "processing")
-    #         )
-    #         &
-    #         (vehicles["current_node"] == node_id)
-    #         &
-    #         (vehicles["incoming_link"] == incoming_link)
-    #     ).sum()
-
-    #     node_name = nodes.at[ (node_id, incoming_link), "name" ]
-    #     incoming_name = links.at[ incoming_link, "road_name" ]
-    #     node_labels.append( f"{node_name} ← {incoming_name}" )
-    #     node_values.append(count)
-
-    # collect_statistics(second)
-    history.append({
-
-        "time": current_time,
-
-        "vehicles_home":
-            (vehicles["state"] == "home").sum(),
-
-        "vehicles_driving":
-            (vehicles["state"] == "driving").sum(),
-
-        "vehicles_queued":
-            ( (vehicles["state"] == "queued") | (vehicles["state"] == "processing") ).sum(),
-
-        "vehicles_finished":
-            (vehicles["state"] == "finished").sum(),
-
-        "washout_queue":
-            nodes.loc[("N1","L0"),"queue_length"],
-
-        "spanishranch_queue":
-            nodes.loc[("N3","L0"),"queue_length"],
-
-        "mtbachehighlandL1_queue":
-            nodes.loc[("N4","L1"),"queue_length"],
-
-        "mtbachehighlandL3_queue":
-            nodes.loc[("N4","L3"),"queue_length"],
-
-        "skyland_queue":
-            nodes.loc[("N7","L0"),"queue_length"],
-
-        "ssj_queue":
-            nodes.loc[("N8","L8"),"queue_length"],
-
+    # Vehicles per source
+    communities = pd.DataFrame({
+        "source": [ "MtBache", "Highland", "MarVista", "SpanishRanch", "BurrellStation", "Radonich", "Skyland1", "Skyland2", "SummitWoods", "LomaPrieta" ],
+        "dwellings": [ 65, 20, 11, 18, 30./VEHICLES_PER_DWELLING, 28, 80, 80, 49, 18 ]
     })
 
-    #display_current_state(fig, ax, vehicles, routes, current_time)
-    display_network_state(fig, ax, vehicles, nodes, links, current_time)
+    communities["vehicles"] = (
+        communities["dwellings"] * VEHICLES_PER_DWELLING
+    ).round().astype(int)
 
-    # -----------------------------
-    # Find next event
-    # -----------------------------
+    nodes = pd.DataFrame([
+        # id    name               incoming_link    priority   process_time 
+        ["N1",  "Washout",                  "L0",   2,          WASHOUT_TIME, (37.104740, -121.898612)],
+        ["N1",  "Washout",                  "L1",   1,          WASHOUT_TIME, (37.104740, -121.898612)],
+        ["N2",  "MarVista_Merge",           "L0",   2,          STOP_TIME,  (37.102582, -121.896839)],
+        ["N2",  "MarVista_Merge",           "L99",  1,          GAP_TIME,   (37.102582, -121.896839)],
+        ["N3",  "SpanishRanch_Merge",       "L0",   2,          STOP_TIME,  (37.105577, -121.900078)],
+        ["N3",  "SpanishRanch_Merge",       "L2",   1,          GAP_TIME,   (37.105577, -121.900078)],
+        ["N4",  "MtBache_Highland_Merge",   "L1",   2,          STOP_TIME,  (37.1060157, -121.9001665)],
+        ["N4",  "MtBache_Highland_Merge",   "L3",   2,          STOP_TIME,  (37.1060157, -121.9001665)],
+        ["N4",  "MtBache_Highland_Merge",   "L4",   1,          STOP_TIME,  (37.1060157, -121.9001665)],
+        ["N99", "Highland",                 "L0",   1,          GAP_TIME,   (37.102582, -121.896839)],
+        ["N5",  "Radonich_Merge",           "L0",   2,          GAP_TIME,   (37.108186, -121.904559)],
+        ["N5",  "Radonich_Merge",           "L4",   1,          STOP_TIME,  (37.108186, -121.904559)],
+        ["N6",  "BurrellStation",           "L0",   1,          GAP_TIME,   (37.108470, -121.905971)],      
+        ["N7",  "Skyland_Merge",            "L0",   2,          STOP_TIME,  (37.116451, -121.921693)],      
+        ["N7",  "Skyland_Merge",            "L5",   1,          GAP_TIME,   (37.116451, -121.921693)],
+        ["N8",  "Summit_SSJ_Merge",         "L6",   1,          GAP_TIME,   (37.118710, -121.925394)],
+        ["N8",  "Summit_SSJ_Merge",         "L8",   2,          STOP_TIME,  (37.118710, -121.925394)],
+        ["N9",  "SummitWoods_Merge",        "L0",   2,          STOP_TIME,  (37.112855, -121.947596)],
+        ["N10", "MillerCutoff_Merge",       "L0",   2,          STOP_TIME,  (37.116080, -121.933509)],
+        ["N10", "MillerCutoff_Merge",       "L7",   1,          GAP_TIME,   (37.116080, -121.933509)],
+        ["N11",  "LomaPrieta_Merge",        "L0",   2,          STOP_TIME,  (37.121319, -121.931327)],
+        ["N11",  "LomaPrieta_Merge",        "L9",   1,          GAP_TIME,   (37.121319, -121.931327)],
+    ], columns=[
+        "id",
+        "name",
+        "incoming_link",
+        "priority",
+        "process_time_sec",
+        "location"
+    ])
+    nodes["queue_length"] = 0
+    nodes["state"] = "free"
+    nodes["next_available_time"] = 0
+    nodes = nodes.set_index(["id","incoming_link"])
 
-    vehicle_events = vehicles.loc[
-        (vehicles["state"] != "finished") &
-        (vehicles["state"] != "queued"),
-        "ticket_time"
-    ]
+    links = pd.DataFrame([
+        # id     from   to     road_name                        length_mi  speed_mph
+        ["L0", None, None,      "Home",                         0.5,        SPEED],
+        ["L99", "N99", "N2",    "Highland Way (pre Mar Vista)",   0.5,        SPEED],
+        ["L1",  "N1",  "N4",    "Mt Bache Rd",                  0.1,        SPEED],
+        ["L2",  "N2",  "N3",    "Highland Way (post Mar Vista)",  0.4,        SPEED],
+        ["L3",  "N3",  "N4",    "Highland Way (post Spanish Ranch)", 154./5280,  SPEED],
+        ["L4",  "N4",  "N5",   "Highland Way (post Mt Bache)",    0.3,        SPEED],
+        ["L5",  "N5",  "N7",   "Highland Way (post Radonich)",    1.1,        SPEED],
+        ["L6",  "N7",  "N8",    "Highland Way (post Skyland)",    0.3,        SPEED],
+        ["L7",  "N9",  "N10",   "SSJ (post Summit Woods)",             0.9,        SPEED],
+        ["L8",  "N10",  "N8",   "SSJ (post Miller Cutoff)",            0.5,        SPEED],
+        ["L9",  "N8",  "N11",  "Summit Rd",                     0.4,        SPEED],
+    ], columns=[
+        "id",
+        "from_node",
+        "to_node",
+        "road_name",
+        "length_miles",
+        "speed_mph",
+    ])
+    links["process_time_sec"] = (
+        links["length_miles"] / links["speed_mph"] * 3600
+    )
+    links = links.set_index("id")
 
-    node_events = nodes.loc[
-        nodes["queue_length"] > 0,
-        "next_available_time"
-    ]
+    routes = { 
+        "MtBache":          ["N1", "L1", "N4", "L4", "N5", "L5", "N7", "L6", "N8", "L9", "N11"],
+        "Highland":         ["N99", "L99", "N2", "L2", "N3", "L3", "N4", "L4", "N5", "L5", "N7", "L6", "N8", "L9", "N11"],
+        "MarVista":         ["N2", "L2", "N3", "L3", "N4", "L4", "N5", "L5", "N7", "L6", "N8", "L9", "N11"], 
+        "SpanishRanch":     ["N3", "L3", "N4", "L4", "N5", "L5", "N7", "L6", "N8", "L9", "N11"],
+        "BurrellStation":   ["N5", "L4", "N4", "L1", "N1"],
+        "Radonich":         ["N5", "L5", "N7", "L6", "N8", "L9", "N11"],
+        "Skyland1":         ["N7", "L6", "N8", "L9", "N11"],
+        "Skyland2":         ["N10", "L8", "N8", "L9", "N11"],
+        "SummitWoods":      ["N9", "L7", "N10", "L8", "N8", "L9", "N11"],
+        "LomaPrieta":       ["N11"]
+               }
 
-    # node_events = vehicles.loc[
-    #     vehicles["state"] == "queued",
-    #     "ticket_time"
-    # ]
+    expected = 0
+    return MEAN_TICKET, SIGMA_TICKET, communities, routes, nodes, links, expected
 
-    if vehicle_events.empty and node_events.empty:
-        break
+if __name__ == "__main__":
 
-    candidates = []
+    MEAN_TICKET, SIGMA_TICKET, communities, routes, nodes, links, expected = test_summit()
+    vehicles = init(MEAN_TICKET,SIGMA_TICKET,communities)
 
-    if not vehicle_events.empty:
-        candidates.append(vehicle_events.min())
+    if DEBUG:
+        fig, axes = plt.subplots( 2, 1, figsize=(14, 8), gridspec_kw={"height_ratios": [2, 1]})
+        fig.tight_layout(pad=2.0)
+        fig.subplots_adjust(hspace=0.6)
+        vehicles, nodes, links, history = evacuate(vehicles, routes, nodes, links, fig, axes)
+    else:
+        vehicles, nodes, links, history = evacuate(vehicles, routes, nodes, links)
 
-    if not node_events.empty:
-        candidates.append(node_events.min())
+    actual = max(vehicles["end_time"])
+    commute = max(vehicles["commute_time"])
 
-    current_time = min(candidates)
+    print("Actual - Expected (minutes):")
+    print((actual - expected) / 60)
 
-history = pd.DataFrame(history)
+    fig1, ax1 = plt.subplots(figsize=(7, 5))
+    for source in vehicles["source"].unique():
+        batch = vehicles.loc[vehicles["source"]==source]
+        end_times = np.sort(batch["end_time"])
+        x_time = np.insert(end_times, 0, 0) / 60          # minutes
+        y_count = np.arange(len(end_times) + 1)
+        ax1.step( x_time, y_count, where="post", label=source) 
+        #ax1.plot(vehicles.loc[vehicles["source"]==source,"commute_time"] / 60, label=source)
+    # ax1.plot(history["time"]/60, history["vehicles_finished"], '--', color="gray", label="Total Vehicles Finished")
 
-fig1, ax1 = plt.subplots(figsize=(14, 6))
-ax1.plot(history["time"]/60, history["vehicles_finished"])
+    if expected > 0:
+        # Expected maximum commute time
+        ax1.axvline( expected / 60, color="red", linestyle="--", linewidth=2, label=f"Expected = {expected/60:.1f} min" )
 
-print( vehicles.loc[ vehicles["state"] != "finished" ] )
-print("Evacuation Completed in ", str(round(current_time/60,2)), " minutes")
-plt.ioff()
-plt.show()
+        # Actual maximum commute time (optional)
+        ax1.axvline( actual / 60, color="green", linestyle="-", linewidth=2, label=f"Actual = {actual/60:.1f} min" )
+
+    ax1.set_xlabel("Elapsed Time since Evacuation Order (minutes)")
+    ax1.set_ylabel("Number of vehicles evacuated")
+    ax1.set_title("Evacuation vs Time")
+    ax1.legend()
+
+    fig2, ax2 = plt.subplots(figsize=(7, 5))
+    group = vehicles.sort_values("start_time")
+    # ax2.scatter(group["start_time"].values / 60, group["commute_time"].values / 60, label="Total")
+    # ax2.hist(vehicles["commute_time"] / 60, bins=20, label="Total")
+    for source in vehicles["source"].unique():
+        group = vehicles.loc[vehicles["source"]==source].sort_values("start_time")
+        ax2.plot(group["start_time"].values / 60, group["commute_time"].values / 60, "-o", label=source)
+    
+    ax2.set_xlabel("Departure time (minutes)")
+    ax2.set_ylabel("Commute time (minutes)")
+    ax2.set_title("Distribution of commute times")
+    ax2.legend()
+
+    fig3, ax3 = plt.subplots(figsize=(7, 5))
+    ax3.hist(vehicles["start_time"] / 60, bins=20, label="Total")
+    ax3.set_xlabel("Departure time post evacuation notice (minutes)")
+    ax3.set_ylabel("Number of vehicles")
+    ax3.set_title("Distribution of departure times")
+
+    # fig4, ax4 = plt.subplots(figsize=(14,6))
+    # for node_id, incoming_link in nodes.index:
+    #     key = f"{node_id}_{incoming_link}_queue"
+    #     label = f"{nodes.at[(node_id,incoming_link),'name']} ← {links.at[incoming_link,'road_name'].split(' (')[0]}"
+    #     ax4.plot(history["time"].values / 60, history[key].values, label=label)
+    # ax4.set_xlabel("Time (minutes)")
+    # ax4.set_ylabel("Number of vehicles")
+    # ax4.set_title("Evacuation Queue Lengths")  
+    # ax4.legend()
+
+    fig4, axes4, max_queues = plot_node_queues(history, nodes, links)
+
+    plt.show()
+
+    print("end simulation")

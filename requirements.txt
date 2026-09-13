@@ -1,0 +1,20 @@
+# EvacuationModel Python dependencies
+# Install with: python -m pip install -r requirements.txt
+# Versions are unpinned: this is an import-based dependency list,
+# not a lock file from a tested release environment.
+
+# Evacuation simulation and plotting
+numpy
+pandas
+matplotlib
+
+# QR-code generation (generateQRcode.py)
+Pillow
+qrcode
+
+# Road-network exploration (osmnx_sandbox.py)
+requests
+networkx
+osmnx
+# Required by OSMnx nearest_nodes for unprojected latitude/longitude data.
+scikit-learn
