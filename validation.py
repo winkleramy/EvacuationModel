@@ -251,7 +251,7 @@ if __name__ == "__main__":
     vehicles = init(MEAN_TICKET,SIGMA_TICKET,communities)
 
     if DEBUG:
-        fig, axes = plt.subplots( 2, 1, figsize=(14, 8), gridspec_kw={"height_ratios": [2, 1]})
+        fig, axes = plt.subplots( 2, 1, figsize=(12, 7), gridspec_kw={"height_ratios": [2, 1]})
         fig.tight_layout(pad=2.0)
         fig.subplots_adjust(hspace=0.6)
         vehicles, nodes, links, history = evacuate(vehicles, routes, nodes, links, fig, axes)

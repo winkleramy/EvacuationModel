@@ -319,7 +319,7 @@ def plot_node_queues(history, nodes, links, ncols=3):
     fig, axes = plt.subplots(
         nrows,
         ncols,
-        figsize=(15, 3 * nrows),
+        figsize=(12, 2 * nrows),
         sharex=True
     )
 

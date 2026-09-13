@@ -3,7 +3,7 @@ import pandas as pd
 from model import *
 from display import *
 
-DEBUG = 0 # Set to 1 to monitor simulation step-by-step. Set to 0 to run to completion 
+DEBUG = 1 # Set to 1 to monitor simulation step-by-step. Set to 0 to run to completion 
 
 WASHOUT_TIME    = 8     # seconds crossing a washout
 STOP_TIME       = 5     # seconds merging at stop sign or yield
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     vehicles = init(MEAN_TICKET,SIGMA_TICKET,communities)
 
     if DEBUG:
-        fig, axes = plt.subplots( 2, 1, figsize=(14, 8), gridspec_kw={"height_ratios": [2, 1]})
+        fig, axes = plt.subplots( 2, 1, figsize=(12, 7), gridspec_kw={"height_ratios": [2, 1]})
         fig.tight_layout(pad=2.0)
         fig.subplots_adjust(hspace=0.6)
         vehicles, nodes, links, history = evacuate(vehicles, routes, nodes, links, fig, axes)
